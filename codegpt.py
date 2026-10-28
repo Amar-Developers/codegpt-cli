@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 import webbrowser
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 DEFAULT_SERVER = "https://chat.codegpt.it.com"
 HOME = os.path.join(os.path.expanduser("~"), ".codegpt")
 CONFIG = os.path.join(HOME, "config.json")
@@ -605,8 +605,13 @@ def cmd_update(args, cfg):
         say(green("You have the newest version") + f" ({VERSION}).")
         return
     say(f"Updating {VERSION} -> {latest}...")
-    with urllib.request.urlopen(info["download"], timeout=60) as r:
-        data = r.read()
+    req = urllib.request.Request(info["download"], headers={"User-Agent": f"CodeGPT-CLI/{VERSION} ({platform.system()})"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = r.read()
+    except urllib.error.URLError as e:
+        die(f"Could not download the update ({e}). Run the install line again instead:  irm https://codegpt.it.com/install.ps1 | iex"
+            if os.name == "nt" else f"Could not download the update ({e}). Run:  curl -fsSL https://codegpt.it.com/install.sh | sh")
     if info.get("sha256") and hashlib.sha256(data).hexdigest() != info["sha256"]:
         die("The download did not match its checksum, so nothing was changed. Please try again.")
     if b"Code GPT CLI" not in data[:400]:
