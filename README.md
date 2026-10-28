@@ -30,7 +30,9 @@ codegpt login
 | Command | What it does |
 |---|---|
 | `codegpt` | Chat in the terminal. `/web` searches the web, `/model` switches model, `/new` starts a new chat |
-| `codegpt ask "question"` | One answer, then back to your prompt. Great in scripts |
+| `codegpt hello` | Anything that is not a command is a question: one answer, then back to your prompt |
+| `codegpt ask "question"` | The same, written out. Use quotes for special characters. Great in scripts |
+| `codegpt help` | Show every command |
 | `git diff \| codegpt ask "review my changes"` | Pipe in anything: logs, errors, diffs, files |
 | `codegpt agent "fix the failing test"` | The coding agent works in the current folder: reads files, shows every change as a diff and asks before applying it or running a command |
 | `codegpt agent --read-only "how does login work?"` | Explains code without changing anything |

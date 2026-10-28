@@ -2,8 +2,9 @@
 """Code GPT CLI: Code GPT in your terminal, by AMAR Developers.  https://codegpt.it.com/cli
 
   codegpt login                 sign in (opens your browser)
-  codegpt                       chat with Code GPT
-  codegpt ask "question"        one answer, then exit   (you can pipe text in:  git diff | codegpt ask "review this")
+  codegpt                       chat with Code GPT (type your messages, /exit to leave)
+  codegpt hello there           anything that is not a command is a question: one answer, then exit
+  codegpt ask "question"        the same   (you can pipe text in:  git diff | codegpt ask "review this")
   codegpt agent "task"          the coding agent works in this folder: reads files, proposes changes, runs commands
   codegpt models                list the models you can use
   codegpt status                your account, plan and today's limits
@@ -30,7 +31,7 @@ import urllib.error
 import urllib.request
 import webbrowser
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 DEFAULT_SERVER = "https://chat.codegpt.it.com"
 HOME = os.path.join(os.path.expanduser("~"), ".codegpt")
 CONFIG = os.path.join(HOME, "config.json")
@@ -216,7 +217,12 @@ def cmd_login(args, cfg):
         if r.get("status") == "ok":
             cfg["token"] = r["token"]
             save_cfg(cfg)
-            say(green("  Signed in") + f" as {r.get('account', '')}. Try:  codegpt ask \"hello\"")
+            say(green("  Signed in") + f" as {r.get('account', '')}.")
+            say("")
+            if sys.stdin.isatty() and TTY and confirm("  Start chatting now?"):
+                cmd_chat(args, cfg)
+            else:
+                say("  Start chatting:  " + bold("codegpt") + dim("      or ask one thing:  ") + bold('codegpt "hello"'))
             return
     die("The sign-in code expired. Run  codegpt login  again.")
 
@@ -312,7 +318,8 @@ def cmd_ask(args, cfg):
 
 def cmd_chat(args, cfg):
     me = request(cfg, "/api/ext/me")
-    say(bold("Code GPT") + dim(f"  ·  {me.get('first_name') or me.get('email')}  ·  type /help for commands, /exit to leave"))
+    say(bold("Code GPT") + dim(f"  ·  {me.get('first_name') or me.get('email')}"))
+    say(dim("Type your message and press Enter.  /help for commands,  /exit to leave."))
     update_banner(cfg)
     cid, model, web = None, args.model, args.web
     while True:
@@ -618,6 +625,25 @@ def cmd_update(args, cfg):
     say(green("Updated") + f" to {latest}. What's new: {info.get('notes', '')}")
 
 
+COMMANDS = {"login", "logout", "status", "models", "ask", "chat", "agent", "update"}
+
+
+def route(argv):
+    """`codegpt hello there` asks a question; `codegpt help` shows the help. Commands and flags work as usual."""
+    argv = list(argv)
+    i = 0
+    while i < len(argv) and argv[i].startswith("-"):
+        i += 2 if argv[i] in ("--model",) else 1          # skip global flags (and the value of --model)
+    if i >= len(argv):
+        return argv
+    word = argv[i]
+    if word in COMMANDS:
+        return argv
+    if word.lower() in ("help", "/help", "?") and i == len(argv) - 1:
+        return argv[:i] + ["--help"]
+    return argv[:i] + ["ask"] + argv[i:]
+
+
 def _common(p):
     p.add_argument("--model", default=argparse.SUPPRESS, help="model id for this command (see: codegpt models)")
     p.add_argument("--web", action="store_true", default=argparse.SUPPRESS, help="let Code GPT search the web")
@@ -651,7 +677,7 @@ def main():
     p.add_argument("--dir", help="the project folder (default: this folder)")
     p = sub.add_parser("update", help="update the CLI")
     p.add_argument("--force", action="store_true", help=argparse.SUPPRESS)
-    args = ap.parse_args()
+    args = ap.parse_args(route(sys.argv[1:]))
     cfg = load_cfg()
     try:
         if args.cmd == "login":
